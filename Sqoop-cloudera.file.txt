@@ -1,0 +1,204 @@
+							**************************
+								  Sqoop
+							**************************
+######################################################## Database admin Work Start ############################################################
+----Launch one of instance as an Mysql-server (Data-Baase)
+----connect to those node
+						
+
+						-----*** Install database to import data ***-----
+
+sudo apt-get update
+
+sudo apt-get install mysql-server -y
+
+sudo service mysql status
+
+					-----*** Download sample database ***-----kaggle.com all dataset provider
+
+wget http://www.mysqltutorial.org/wp-content/uploads/2018/03/mysqlsampledatabase.zip
+
+sudo apt install zip
+          	----------------------------------------install zip ubuntu have not zip we have to install it
+
+unzip mysqlsampledatabase.zip
+
+					-----*** Load sample data to database ***-----
+
+mysql -u root -p <mysqlsampledatabase.sql
+
+mysql -u root -p
+             		------------------login to root user in Mysql-Server
+mysql>show databases;
+
+exit
+
+### Change bind address of database
+
+         [------------------ Myqsl-Server i.e RDBMS/Data-Base is running on another node
+			     and our HDFS Cluster is runnig on other node's. 
+ 			     We want to transfer the data from RDBMS to HDFS or vice-versa,
+			     This connection is done from Bind address and its on bellow location.
+			     We have to configure it on here                                     ----------- ]
+
+cd /etc/mysql/mysql.conf.d/
+
+sudo nano mysqld.cnf
+bind address = <private-ip of db>
+------------------------------------------------- Ctr+w = search bind address bind address= Pvt IP of DB
+						Thid Databse is avilabe on this given IP Addres
+
+cd
+sudo service mysql restart
+
+
+-----*** Create a user for sqoop ***-----
+
+mysql -u root -p
+
+mysql>create user 'sqoopuser'@'%' identified by 'password';
+
+mysql>grant all privileges on *.* to 'sqoopuser'@'%';
+
+
+
+######################################################## Admin Work Start #############################################################
+
+Network connectivity = vpc Pearing
+
+[if mysql-server is running on other VPC and HDFS is running on other vpc then we have to do VPC pearin on AWS]
+
+then
+
+Allow security group
+
+Raise ticket to database admin for Create user i.e our Accout for sql server
+BDA Respose ---Username,Password,Connection URL
+
+						 -----*** Sqoop ***-----
+
+				-------------fire query from Data Node-------------------
+
+### Log in to one of the data nodes
+
+sudo su hdfs
+cd	
+$ sqoop help
+		---------------------sqoop is not service its parcels AND Set off library this command Its show library avilable or note
+
+
+### Install driver
+
+ ---------on ubuntu user
+
+sudo passwd hdfs
+
+sudo adduser hdfs sudo
+
+su hdfs
+cd
+
+sudo apt-get install libmysql-java
+
+### Check connection to database    --------------------------make changes  put Pvt DNS of Database
+
+$ sqoop list-databases --connect jdbc:mysql://ip-172-31-75-52.ec2.internal:3306/ --username sqoopuser -P
+					
+					
+				     ------------------------its for test database and connection
+enter passwod: password
+
+$ sqoop list-tables --connect jdbc:mysql://ip-172-31-75-52.ec2.internal:3306/classicmodels --username sqoopuser -P
+
+
+                                      ----------------------------------If connectivity is done DBA send All list of database
+
+sqoop list-tables --connect jdbc:mysql://ip-172-31-75-52.ec2.internal.us-east-1f.compute.internal:3306/classicmodels --username sqoopuser -P
+
+enter passwod: password
+				     
+
+					
+					-----*** Sqoop Import ***-----(importent for interview)
+
+
+
+sqoop import --connect jdbc:mysql://ip-172-31-75-52.ec2.internal:3306/classicmodels --username sqoopuser --password password --table employees -m 1
+	--------------------------------pvt DNS of Database
+
+(we import emplyee table/ database name=classicmodels/ username = sqoopuser /password = password /table which we need to import = employees/ mapper =m  1 mapper is run)
+
+$hdfd dfs -ls /user/hdfs/employee
+$hdfs dfs -copyToLocal /user/hdfs/employee/TABLE_NAME  copy it on local /ubunt
+
+in HDFS $ls
+	  $cd employee 
+	  $ls
+	  $nano file_NAME
+its showing records
+
+
+sqoop import --connect jdbc:mysql://ip-172-31-75-52.ec2.internal:3306/classicmodels --username sqoopuser --password password --table employees -m 5 --target-dir /user/hdfs/new/
+                       
+					----------------------------data stored on hdfs on particular location /user/hdfs/new --partfile name
+
+sqoop import --connect jdbc:mysql://ip-172-31-75-52.ec2.internal:3306/classicmodels --username sqoopuser --password password --table employees --create-hive-table --hive-import --target-dir /user/hdfs/emphive/
+
+
+               	---------------------Import data in Hive. data stored on hive its best option, hive automatically create table and schema
+		---------------------Check it from Clouder-aManger, or through Hue also
+ SELECT * FROM employee;
+ 
+sqoop import --connect jdbc:mysql://ip-172-31-26-71.us-west-2.compute.internal:3306/classicmodels --username sqoopuser --password password --table employees --create-hive-table --hive-import --target-dir /user/hdfs/emphive/
+		
+
+							-----*** Sqoop Export ***-----
+
+## NOTE : It is mandatory that the table to be exported is created manually and is present in the database from where it has to be exported.
+##(Admin not create schema) we raaise ticket to dba attch sample data set allong withticket and tell dba to create table according to schema
+
+connect to Mysql-Server node
+
+### Create table in destination database
+
+
+mysql -u root -p
+
+mysql>use classicmodels;
+
+mysql>create table export like employees;	
+		------------export is table name
+
+mysql> show tables;
+
+mysql> describe export; 
+
+---------------------Create empty table with scema this is DBA Work
+
+					######### database PVT IP put belllow ###########
+
+sqoop export --connect jdbc:mysql://172.31.75.52:3306/classicmodels --username sqoopuser --password password --table export --export-dir /user/hdfs/employees/
+
+
+### Check data in database connect to db and check data export or not on db
+
+
+mysql -u root -p	
+mysql>use classicmodels;
+mysql> select * from export;
+			----check data are export or not
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@Import preequist or chalange in sqoop@@@@@@@@@@@@@@@@@@@@@@@@@@@@2
+
+import on hive scema on read
+1 = compatibility
+2 = establish n/w to hadoop using vpc pearing
+3 = all security group fire wall setup
+4 = raise ticket to DBA Ans ask for username password, connection url
+5 = during import install drivers on that user 
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@ preequist or chalange in sqoop@@@@@@@@@@@@@@@@@@@@@@@@@@@@2
+6 = fro export on hive scema on write
+
+--------[thos data we are sending from HDFS to RDBMS we need to create Table & Scema on Mysql-Server --This is work of DBA ]
+ 
